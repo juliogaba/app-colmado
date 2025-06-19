@@ -1,0 +1,24 @@
+@media print {
+  /* Oculta todo en la página por defecto */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Muestra únicamente el área del reporte y su contenido */
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+  
+  /* Asegura que el área del reporte ocupe toda la página */
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Oculta los botones dentro del área al imprimir */
+  .no-print, .no-print * {
+    display: none !important;
+  }
+}

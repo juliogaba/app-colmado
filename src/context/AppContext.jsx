@@ -1,18 +1,16 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { initializeData, saveData } from '../lib/dataManager';
+import { initializeData, saveData } from '@/lib/dataManager';
 
 const AppContext = createContext();
 
-// --- FUNCIÓN DE FECHAS A PRUEBA DE ZONAS HORARIAS ---
+// --- FUNCIÓN AUXILIAR PARA FECHAS A PRUEBA DE ZONAS HORARIAS ---
 const formatDateToYMD = (dateInput) => {
   if (!dateInput) return null;
   const dateString = dateInput.toString();
-
   // Si es un string ISO completo (ej: "2025-06-20T..."), extrae solo la parte de la fecha.
   if (dateString.includes('T')) {
     return dateString.substring(0, 10);
   }
-
   // Si es un objeto Date del calendario, lo convierte a YYYY-MM-DD.
   const date = new Date(dateInput);
   const year = date.getFullYear();
@@ -20,7 +18,6 @@ const formatDateToYMD = (dateInput) => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
-
 
 export const AppProvider = ({ children }) => {
   const [usuarios, setUsuarios] = useState([]);
@@ -34,9 +31,10 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => {
     const data = initializeData();
+    // Migra datos viejos a nuevos si es necesario
     const creditosMigrados = data.creditos.map(c => {
       if (c.capitalUtilizado === undefined && c.saldoDisponible !== undefined) {
-        return { ...c, capitalUtilizado: c.montoAprobado - c.saldoDisponible };
+        return { ...c, capitalUtilizado: c.montoAprobado - c.saldoDisponible, saldoDisponible: undefined };
       }
       return c;
     });
@@ -93,11 +91,7 @@ export const AppProvider = ({ children }) => {
     
     const nuevosCreditos = creditos.map(c => 
       c.id === creditoId 
-      ? { 
-          ...c, 
-          capitalUtilizado: (c.capitalUtilizado || 0) + montoConsumo,
-          interesAdeudado: (c.interesAdeudado || 0) + interesGenerado 
-        } 
+      ? { ...c, capitalUtilizado: (c.capitalUtilizado || 0) + montoConsumo, interesAdeudado: (c.interesAdeudado || 0) + interesGenerado } 
       : c
     );
     setCreditos(nuevosCreditos);
@@ -120,11 +114,7 @@ export const AppProvider = ({ children }) => {
     
     const nuevosCreditos = creditos.map(c => 
       c.id === creditoId 
-      ? { 
-          ...c, 
-          capitalUtilizado: (c.capitalUtilizado || 0) - pagoACapital,
-          interesAdeudado: (c.interesAdeudado || 0) - pagoAInteres
-        } 
+      ? { ...c, capitalUtilizado: (c.capitalUtilizado || 0) - pagoACapital, interesAdeudado: (c.interesAdeudado || 0) - pagoAInteres } 
       : c
     );
     setCreditos(nuevosCreditos);
@@ -162,7 +152,6 @@ export const AppProvider = ({ children }) => {
   const eliminarUsuario = (userId) => { /* ... */ };
   const viewAsColmadoUser = (colmadoId) => { /* ... */ };
 
-  // --- FUNCIÓN DE REPORTE CON LÓGICA DE FECHAS CORREGIDA ---
   const generarReporte = ({ tipoReporte, colmadoId, dateRange, searchTerm }) => {
     const { from, to } = dateRange;
     const startYMD = formatDateToYMD(from);
@@ -182,12 +171,7 @@ export const AppProvider = ({ children }) => {
           .map(cons => ({ ...cons, nombreCliente: clientes.find(cli => cli.id === creditos.find(cr => cr.id === cons.creditoId)?.clienteId)?.nombre || "N/A" }));
 
       case 'ganancias_colmado': {
-        const pagosDelColmado = pagos
-          .filter(pago => idsDeCreditos.includes(pago.creditoId))
-          .filter(pago => {
-            const pagoYMD = formatDateToYMD(pago.fecha);
-            return pagoYMD >= startYMD && pagoYMD <= endYMD;
-          });
+        const pagosDelColmado = pagos.filter(pago => idsDeCreditos.includes(pago.creditoId) && formatDateToYMD(pago.fecha) >= startYMD && formatDateToYMD(pago.fecha) <= endYMD);
         const interesTotal = pagosDelColmado.reduce((sum, pago) => sum + (pago.montoInteres || 0), 0);
         return { pagos: pagosDelColmado, interesTotal, ganancia: interesTotal * 0.035 };
       }
@@ -197,10 +181,8 @@ export const AppProvider = ({ children }) => {
         if (!clienteEncontrado) return null;
         const creditoCliente = creditos.find(cr => cr.clienteId === clienteEncontrado.id);
         if (!creditoCliente) return { cliente: clienteEncontrado, consumos: [], pagos: [] };
-        
         const consumosCliente = consumos.filter(cons => cons.creditoId === creditoCliente.id && formatDateToYMD(cons.fecha) >= startYMD && formatDateToYMD(cons.fecha) <= endYMD);
         const pagosCliente = pagos.filter(pago => pago.creditoId === creditoCliente.id && formatDateToYMD(pago.fecha) >= startYMD && formatDateToYMD(pago.fecha) <= endYMD);
-        
         return { cliente: clienteEncontrado, credito: creditoCliente, consumos: consumosCliente, pagos: pagosCliente };
       }
       default: return null;

@@ -26,13 +26,14 @@ const AdminDashboard = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState(null);
 
-  // --- CÁLCULOS DINÁMICOS (sin cambios) ---
+ // --- CÁLCULOS DINÁMICOS CORREGIDOS ---
   const creditosActivos = creditos.filter(c => c.estado === 'activo');
   const montoTotalOtorgado = creditosActivos.reduce((total, credito) => total + credito.montoAprobado, 0);
-  const saldoTotalDisponible = creditosActivos.reduce((total, credito) => total + credito.saldoDisponible, 0);
-  const deudaCapitalTotal = montoTotalOtorgado - saldoTotalDisponible;
+  
+  const deudaCapitalTotal = creditosActivos.reduce((total, credito) => total + (credito.capitalUtilizado || 0), 0);
   const interesAdeudadoTotal = creditosActivos.reduce((total, credito) => total + (credito.interesAdeudado || 0), 0);
   const deudaTotalEnCalle = deudaCapitalTotal + interesAdeudadoTotal;
+  
   const totalConsumidoHistorico = consumos.reduce((total, consumo) => total + consumo.monto, 0);
   const totalPagado = pagos.reduce((total, pago) => total + (pago.montoTotal || 0), 0);
   const porcentajeUtilizacion = montoTotalOtorgado > 0 ? (deudaCapitalTotal / montoTotalOtorgado) * 100 : 0;
@@ -41,9 +42,10 @@ const AdminDashboard = () => {
   const consumosRecientesConNombre = consumos.slice(-5).reverse().map(cons => {
     const creditoAsociado = creditos.find(cr => cr.id === cons.creditoId);
     const clienteAsociado = clientes.find(c => c.id === creditoAsociado?.clienteId);
-    return { ...cons, nombreCliente: clienteAsociado ? clienteAsociado.nombre : 'Cliente no encontrado' };
+    return { ...cons, nombreCliente: clienteAsociado ? clienteAsociado.nombre : 'Cliente no encontrado', creditoId: creditoAsociado?.id };
   });
   const pagosRecientes = pagos.slice(-5).reverse();
+
 
   const handleAprobar = (creditoId) => {
     aprobarCredito(creditoId);
@@ -173,8 +175,8 @@ const AdminDashboard = () => {
                       <div><p className="text-sm text-gray-500">ID de Crédito</p><p className="font-mono bg-gray-200 px-2 py-1 rounded-md text-sm">{detailData.credito.id}</p></div>
                       <div><p className="text-sm text-gray-500">Estado</p><p className="font-semibold text-green-600 flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-green-500"></span>Activo</p></div>
                       <div><p className="text-sm text-gray-500">Crédito Otorgado</p><p className="font-semibold text-base">${detailData.credito.montoAprobado.toLocaleString('es-DO', {minimumFractionDigits: 2})}</p></div>
-                      <div><p className="text-sm text-gray-500">Saldo Disponible</p><p className="font-semibold text-base">${detailData.credito.saldoDisponible.toLocaleString('es-DO', {minimumFractionDigits: 2})}</p></div>
-                      <div className="col-span-2 border-t pt-4 mt-2"><p className="text-sm text-gray-500">Deuda Total (Capital + Interés)</p><p className="text-xl font-bold text-red-600">${((detailData.credito.montoAprobado - detailData.credito.saldoDisponible) + (detailData.credito.interesAdeudado || 0)).toLocaleString('es-DO', {minimumFractionDigits: 2})}</p></div>
+                     <div><p className="text-sm text-gray-500">Saldo Disponible</p><p className="font-semibold text-base">${(detailData.credito.montoAprobado - (detailData.credito.capitalUtilizado || 0)).toLocaleString('es-DO', {minimumFractionDigits: 2})}</p></div>
+                      <div className="col-span-2 border-t pt-4 mt-2"><p className="text-sm text-gray-500">Deuda Total (Capital + Interés)</p><p className="text-xl font-bold text-red-600">${((detailData.credito.capitalUtilizado || 0) + (detailData.credito.interesAdeudado || 0)).toLocaleString('es-DO', {minimumFractionDigits: 2})}</p></div>
                     </div>
                   </div>
                   <div>

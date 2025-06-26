@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
@@ -12,7 +12,7 @@ import AllCreditsPage from './pages/admin/AllCreditsPage';
 import AllConsumosPage from './pages/admin/AllConsumosPage';
 import AllPagosPage from './pages/admin/AllPagosPage';
 
-const NotFoundPage = () => <div className="p-8"><h1>404 - Página no encontrada</h1></div>;
+const NotFoundPage = () => <div className="p-8 text-center"><h1>404 - Página no encontrada</h1><p>La ruta que buscas no existe.</p></div>;
 
 const AppContent = () => {
   const { currentUser, isLoading } = useAppContext();
@@ -25,47 +25,55 @@ const AppContent = () => {
       </div>
     );
   }
-  
-  if (!currentUser) {
-    return (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/login" />} />
-      </Routes>
-    )
-  }
 
+  // --- ESTRUCTURA DE RUTAS SIMPLIFICADA Y ROBUSTA ---
   return (
     <Routes>
-       <Route path="/" element={<Navigate to={currentUser.role === 'administrador' ? '/admin' : '/colmado'} />} />
-       
-       <Route element={<DashboardLayout />}>
-          {currentUser.role === 'administrador' && (
-            <>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/colmados" element={<ColmadosPage />} />
-              <Route path="/admin/usuarios" element={<UsuariosPage />} />
-              
-              {/* RUTA RESTAURADA */}
-              <Route path="/admin/creditos" element={<CreditosPage />} />
-              
-              {/* Rutas para ver historiales completos */}
-              <Route path="/admin/creditos/todos" element={<AllCreditsPage />} />
-              <Route path="/admin/consumos/todos" element={<AllConsumosPage />} />
-              <Route path="/admin/pagos/todos" element={<AllPagosPage />} />
-            </>
-          )}
+      {/* Si no hay usuario, la única ruta es /login */}
+      {!currentUser && (
+        <>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </>
+      )}
 
-          {currentUser.role === 'colmado' && (
-             <Route path="/colmado" element={<ColmadoDashboard />} />
-          )}
-       </Route>
-       
-       <Route path="/login" element={<Navigate to="/" />} />
-       <Route path="*" element={<NotFoundPage />} />
+      {/* Si SÍ hay usuario, se definen las rutas de la aplicación */}
+      {currentUser && (
+        <>
+          {/* La ruta raíz redirige al dashboard correcto */}
+          <Route 
+            path="/" 
+            element={
+              <Navigate to={currentUser.role === 'administrador' ? '/admin' : '/colmado'} replace />
+            } 
+          />
+          
+          {/* Rutas para Administrador anidadas bajo /admin */}
+          <Route path="/admin" element={currentUser.role === 'administrador' ? <DashboardLayout /> : <Navigate to="/login" />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="colmados" element={<ColmadosPage />} />
+            <Route path="usuarios" element={<UsuariosPage />} />
+            <Route path="creditos" element={<CreditosPage />} />
+            {/* Aquí puedes añadir más rutas que usen el mismo layout */}
+          </Route>
+
+          {/* Rutas para Colmado anidadas bajo /colmado */}
+          <Route path="/colmado" element={currentUser.role === 'colmado' ? <DashboardLayout /> : <Navigate to="/login" />}>
+            <Route index element={<ColmadoDashboard />} />
+             {/* Si el colmado tuviera más sub-páginas, irían aquí */}
+          </Route>
+          
+          {/* Si un usuario logueado intenta ir a /login, lo mandamos a su dashboard */}
+           <Route path="/login" element={<Navigate to="/" replace />} />
+
+          {/* Cualquier otra ruta no encontrada */}
+          <Route path="*" element={<NotFoundPage />} />
+        </>
+      )}
     </Routes>
   );
 };
+
 
 function App() {
   return (
